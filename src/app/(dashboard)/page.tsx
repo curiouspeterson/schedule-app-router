@@ -1,62 +1,63 @@
-"use client"
+import { createClient } from '@/lib/supabase/server'
+import { cookies } from 'next/headers'
+import { DashboardContent } from '@/components/dashboard/DashboardContent'
+import { redirect } from 'next/navigation'
 
-import { useEffect, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
+export default async function DashboardPage() {
+  const cookieStore = cookies()
+  const supabase = createClient(cookieStore)
 
-interface DashboardMetrics {
-  totalShifts: number;
-  upcomingShifts: number;
-  pendingTimeOff: number;
-}
+  // Get current user and their profile
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  
+  if (userError) {
+    console.error('Error fetching user:', userError)
+    return redirect('/login')
+  }
 
-export default function DashboardPage() {
-  const [metrics, setMetrics] = useState<DashboardMetrics>({
-    totalShifts: 0,
-    upcomingShifts: 0,
-    pendingTimeOff: 0,
-  });
+  if (!user) {
+    console.log('No user found, redirecting to login')
+    return redirect('/login')
+  }
 
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      const supabase = createClient();
-      
-      // Fetch metrics from Supabase
-      // TODO: Implement actual metrics queries
-      
-      setMetrics({
-        totalShifts: 0,
-        upcomingShifts: 0,
-        pendingTimeOff: 0,
-      });
-    };
+  // Fetch profile with error handling
+  let { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
 
-    fetchDashboardData();
-  }, []);
+  if (profileError) {
+    console.error('Error fetching profile:', profileError)
+    // If no profile exists, we should create one
+    if (profileError.code === 'PGRST116') {
+      console.log('Creating new profile for user:', user.id)
+      const { data: newProfile, error: createError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+          email: user.email,
+          is_manager: false,
+        })
+        .select()
+        .single()
+
+      if (createError) {
+        console.error('Error creating profile:', createError)
+        return redirect('/login')
+      }
+
+      profile = newProfile
+    } else {
+      return redirect('/login')
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
-      </div>
-      
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="p-4 bg-card rounded-lg border shadow-sm">
-          <h3 className="text-lg font-semibold">Total Shifts</h3>
-          <p className="text-3xl font-bold">{metrics.totalShifts}</p>
-        </div>
-        <div className="p-4 bg-card rounded-lg border shadow-sm">
-          <h3 className="text-lg font-semibold">Upcoming Shifts</h3>
-          <p className="text-3xl font-bold">{metrics.upcomingShifts}</p>
-        </div>
-        <div className="p-4 bg-card rounded-lg border shadow-sm">
-          <h3 className="text-lg font-semibold">Pending Time Off</h3>
-          <p className="text-3xl font-bold">{metrics.pendingTimeOff}</p>
-        </div>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        {/* Add more dashboard widgets here */}
-      </div>
-    </div>
-  );
+    <DashboardContent
+      user={user}
+      isManager={profile?.is_manager || false}
+    />
+  )
 } 

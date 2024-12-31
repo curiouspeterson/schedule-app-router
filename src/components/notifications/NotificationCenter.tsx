@@ -1,153 +1,197 @@
 "use client"
 
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Bell } from 'lucide-react';
+import { Bell } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
   SheetTrigger,
-} from '@/components/ui/sheet';
-import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { useRealTimeNotifications } from '@/hooks/useRealTimeNotifications';
+} from '@/components/ui/sheet'
+import { Button } from '@/components/ui/button'
+import { ScrollArea } from '@/components/ui/scroll-area'
+import { createClient } from '@/lib/supabase/client'
+import { Badge } from '@/components/ui/badge'
 
 interface Notification {
-  id: string;
-  type: 'schedule_published' | 'schedule_review' | 'assignment_changed' | 'shift_added' | 'shift_removed';
-  title: string;
-  message: string;
-  link?: string;
-  read: boolean;
-  created_at: string;
+  id: string
+  title: string
+  message: string
+  type: string
+  read: boolean
+  created_at: string
 }
 
 export function NotificationCenter() {
-  const supabase = createClient();
-  const queryClient = useQueryClient();
-  const router = useRouter();
-  const [isOpen, setIsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [open, setOpen] = useState(false)
+  const supabase = createClient()
 
-  // Subscribe to real-time notifications
-  useRealTimeNotifications();
+  useEffect(() => {
+    // Fetch notifications
+    const fetchNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
 
-  const { data: notifications = [], isLoading } = useQuery({
-    queryKey: ['notifications'],
-    queryFn: async () => {
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(50)
 
-      if (error) throw error;
-      return data as Notification[];
-    },
-  });
+      if (error) {
+        console.error('Error fetching notifications:', error)
+        return
+      }
 
-  const markAsRead = useMutation({
-    mutationFn: async (notificationId: string) => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', notificationId);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
-
-  const markAllAsRead = useMutation({
-    mutationFn: async () => {
-      const { error } = await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('read', false);
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
-  });
-
-  const handleNotificationClick = async (notification: Notification) => {
-    if (!notification.read) {
-      await markAsRead.mutateAsync(notification.id);
+      setNotifications(data)
+      setUnreadCount(data.filter((n: Notification) => !n.read).length)
     }
-    if (notification.link) {
-      router.push(notification.link);
-    }
-    setIsOpen(false);
-  };
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+    fetchNotifications()
+
+    // Subscribe to new notifications
+    const subscribeToNotifications = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const channel = supabase
+        .channel('notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`,
+          },
+          (payload) => {
+            setNotifications((current) => [payload.new as Notification, ...current])
+            setUnreadCount((count) => count + 1)
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+
+    const unsubscribe = subscribeToNotifications()
+    return () => {
+      unsubscribe.then(cleanup => cleanup?.())
+    }
+  }, [supabase])
+
+  const markAsRead = async (notificationId: string) => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('id', notificationId)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('Error marking notification as read:', error)
+      return
+    }
+
+    setNotifications((current) =>
+      current.map((n) =>
+        n.id === notificationId ? { ...n, read: true } : n
+      )
+    )
+    setUnreadCount((count) => count - 1)
+  }
+
+  const markAllAsRead = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+
+    if (error) {
+      console.error('Error marking all notifications as read:', error)
+      return
+    }
+
+    setNotifications((current) =>
+      current.map((n) => ({ ...n, read: true }))
+    )
+    setUnreadCount(0)
+  }
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" className="relative">
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+            <Badge
+              variant="destructive"
+              className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 text-xs"
+            >
               {unreadCount}
-            </span>
+            </Badge>
           )}
         </Button>
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <div className="flex items-center justify-between">
-            <SheetTitle>Notifications</SheetTitle>
+          <SheetTitle className="flex items-center justify-between">
+            Notifications
             {unreadCount > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => markAllAsRead.mutate()}
+                onClick={markAllAsRead}
               >
                 Mark all as read
               </Button>
             )}
-          </div>
+          </SheetTitle>
         </SheetHeader>
-        <div className="mt-4 space-y-4">
-          {isLoading ? (
-            <p className="text-center text-muted-foreground">Loading notifications...</p>
-          ) : notifications.length === 0 ? (
-            <p className="text-center text-muted-foreground">No notifications</p>
-          ) : (
-            notifications.map((notification) => (
+        <ScrollArea className="h-[calc(100vh-8rem)] pr-4">
+          <div className="space-y-4 py-4">
+            {notifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`cursor-pointer rounded-lg border p-4 transition-colors hover:bg-muted ${
-                  !notification.read ? 'border-primary' : ''
+                className={`rounded-lg border p-4 ${
+                  notification.read ? 'bg-background' : 'bg-muted'
                 }`}
-                onClick={() => handleNotificationClick(notification)}
+                onClick={() => !notification.read && markAsRead(notification.id)}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className={`font-medium ${!notification.read ? 'text-primary' : ''}`}>
-                      {notification.title}
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {notification.message}
-                    </p>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {format(new Date(notification.created_at), 'MMM d, h:mm a')}
-                  </p>
+                <div className="mb-1 flex items-center justify-between">
+                  <h4 className="font-semibold">{notification.title}</h4>
+                  {!notification.read && (
+                    <Badge variant="secondary">New</Badge>
+                  )}
                 </div>
+                <p className="text-sm text-muted-foreground">
+                  {notification.message}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {new Date(notification.created_at).toLocaleString()}
+                </p>
               </div>
-            ))
-          )}
-        </div>
+            ))}
+            {notifications.length === 0 && (
+              <p className="text-center text-muted-foreground">
+                No notifications
+              </p>
+            )}
+          </div>
+        </ScrollArea>
       </SheetContent>
     </Sheet>
-  );
+  )
 } 

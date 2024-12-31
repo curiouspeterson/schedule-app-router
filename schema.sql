@@ -212,9 +212,11 @@ CREATE TABLE IF NOT EXISTS "public"."coverage_requirements" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "date" "date" NOT NULL,
     "required_staff" integer NOT NULL,
+    "priority" integer DEFAULT 1 NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "coverage_requirements_required_staff_check" CHECK (("required_staff" >= 0))
+    CONSTRAINT "coverage_requirements_required_staff_check" CHECK (("required_staff" >= 0)),
+    CONSTRAINT "coverage_requirements_priority_check" CHECK (("priority" >= 1 AND "priority" <= 5))
 );
 
 
@@ -330,6 +332,7 @@ CREATE TABLE IF NOT EXISTS "public"."shifts" (
     "start_time" time without time zone NOT NULL,
     "end_time" time without time zone NOT NULL,
     "role" "text" NOT NULL,
+    "color" "text" DEFAULT '#808080'::text NOT NULL,
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL
 );
@@ -345,6 +348,7 @@ CREATE TABLE IF NOT EXISTS "public"."time_off_requests" (
     "end_date" "date" NOT NULL,
     "status" "text" DEFAULT 'pending'::"text",
     "reason" "text",
+    "description" "text",
     "created_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     "updated_at" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "time_off_requests_status_check" CHECK (("status" = ANY (ARRAY['pending'::"text", 'approved'::"text", 'rejected'::"text"])))

@@ -17,16 +17,6 @@ export async function middleware(request: NextRequest) {
           return request.cookies.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
           response.cookies.set({
             name,
             value,
@@ -34,16 +24,6 @@ export async function middleware(request: NextRequest) {
           })
         },
         remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
           response.cookies.set({
             name,
             value: '',
@@ -54,18 +34,43 @@ export async function middleware(request: NextRequest) {
     }
   )
 
-  // Refresh session if expired
-  await supabase.auth.getSession()
+  const { data: { session }, error } = await supabase.auth.getSession()
 
-  // Protected routes
-  if (request.nextUrl.pathname.startsWith('/dashboard')) {
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session) {
-      return NextResponse.redirect(new URL('/login', request.url))
-    }
+  // If there's an error or no session and we're not on the login page,
+  // redirect to login
+  if ((error || !session) && !request.nextUrl.pathname.startsWith('/login')) {
+    console.log('No session found, redirecting to login')
+    const redirectUrl = new URL('/login', request.url)
+    const redirectResponse = NextResponse.redirect(redirectUrl)
+    // Copy cookies from the original response
+    response.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, {
+        ...cookie,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+      })
+    })
+    return redirectResponse
   }
 
+  // If we have a session and we're on the login page,
+  // redirect to dashboard
+  if (session && request.nextUrl.pathname.startsWith('/login')) {
+    console.log('Session found, redirecting to dashboard')
+    const redirectUrl = new URL('/dashboard', request.url)
+    const redirectResponse = NextResponse.redirect(redirectUrl)
+    // Copy cookies from the original response
+    response.cookies.getAll().forEach(cookie => {
+      redirectResponse.cookies.set(cookie.name, cookie.value, {
+        ...cookie,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+      })
+    })
+    return redirectResponse
+  }
+
+  // Always return the response with updated cookies
   return response
 }
 
@@ -76,6 +81,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
      */
     '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
