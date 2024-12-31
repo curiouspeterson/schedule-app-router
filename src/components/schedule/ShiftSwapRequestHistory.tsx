@@ -1,0 +1,1 @@
+<div className="flex items-center justify-between bg-muted p-4 rounded"> 

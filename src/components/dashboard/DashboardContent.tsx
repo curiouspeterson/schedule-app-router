@@ -18,6 +18,11 @@ interface DashboardContentProps {
   isManager: boolean
 }
 
+function getFullName(profile: { first_name: string | null; last_name: string | null }) {
+  if (!profile.first_name && !profile.last_name) return 'Unknown'
+  return [profile.first_name, profile.last_name].filter(Boolean).join(' ')
+}
+
 export function DashboardContent({
   user,
   isManager,
@@ -229,8 +234,8 @@ export function DashboardContent({
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {request.requesting_employee.id === user.id
-                            ? `Requested to swap with ${request.target_employee.full_name}`
-                            : `${request.requesting_employee.full_name} wants to swap with you`}
+                            ? `Requested to swap with ${getFullName(request.target_employee)}`
+                            : `${getFullName(request.requesting_employee)} wants to swap with you`}
                         </p>
                       </div>
                       <Badge variant={request.status === 'pending' ? 'outline' : 'secondary'}>
@@ -266,8 +271,8 @@ export function DashboardContent({
                         </p>
                         <p className="text-sm text-muted-foreground">
                           {request.requesting_employee.id === user.id
-                            ? `Requested to swap with ${request.target_employee.full_name}`
-                            : `${request.requesting_employee.full_name} wanted to swap with you`}
+                            ? `Requested to swap with ${getFullName(request.target_employee)}`
+                            : `${getFullName(request.requesting_employee)} wanted to swap with you`}
                         </p>
                       </div>
                       <Badge variant={request.status === 'approved' ? 'default' : 'destructive'}>
