@@ -1,32 +1,49 @@
 'use client'
 
-import { User } from '@supabase/supabase-js'
 import { MainNav } from '@/components/navigation/MainNav'
 import { UserNav } from '@/components/navigation/UserNav'
-import { NotificationCenter } from '@/components/notifications/NotificationCenter'
+import { useQuery } from '@tanstack/react-query'
+import { createClient } from '@/lib/supabase/client'
 
-interface DashboardLayoutProps {
-  user: User
-  children: React.ReactNode
-}
+export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const supabase = createClient()
 
-export function DashboardLayout({ user, children }: DashboardLayoutProps) {
+  const { data: profile, isLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return null
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single()
+
+      if (error) throw error
+      return data
+    },
+  })
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-lg text-muted-foreground">Loading...</p>
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center">
-          <MainNav />
+      <div className="border-b">
+        <div className="flex h-16 items-center px-4">
+          <MainNav isManager={profile?.role === 'manager'} />
           <div className="ml-auto flex items-center space-x-4">
-            <NotificationCenter />
-            <UserNav user={user} />
+            <UserNav />
           </div>
         </div>
-      </header>
-      <main className="flex-1 space-y-4 p-8 pt-6">
-        <div className="container">
-          {children}
-        </div>
-      </main>
+      </div>
+      <main className="flex-1">{children}</main>
     </div>
   )
 } 

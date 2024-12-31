@@ -5,22 +5,25 @@ import { createClient } from '@/lib/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Mail } from 'lucide-react';
+import { Mail, Calendar, UserCog } from 'lucide-react';
 
-interface EmployeeListProps {
-  organizationId: string;
+interface Employee {
+  id: string;
+  full_name: string;
+  email: string;
+  role: 'manager' | 'employee';
+  weekly_hours_limit: number;
 }
 
-export function EmployeeList({ organizationId }: EmployeeListProps) {
+export function EmployeeList() {
   const supabase = createClient();
 
-  const { data: employees, isLoading } = useQuery({
-    queryKey: ['employees', organizationId],
+  const { data: employees, isLoading } = useQuery<Employee[]>({
+    queryKey: ['employees'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .eq('organization_id', organizationId)
         .order('full_name');
 
       if (error) throw error;
@@ -29,19 +32,31 @@ export function EmployeeList({ organizationId }: EmployeeListProps) {
   });
 
   if (isLoading) {
-    return <div>Loading employees...</div>;
+    return (
+      <div className="flex items-center justify-center h-32">
+        <p className="text-lg text-muted-foreground">Loading employees...</p>
+      </div>
+    );
+  }
+
+  if (!employees?.length) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <p className="text-lg text-muted-foreground">No employees found</p>
+      </div>
+    );
   }
 
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-      {employees?.map((employee) => (
+      {employees.map((employee) => (
         <Card key={employee.id}>
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <span>{employee.full_name}</span>
-              {employee.is_manager && (
-                <Badge variant="secondary">Manager</Badge>
-              )}
+              <Badge variant={employee.role === 'manager' ? 'default' : 'secondary'}>
+                {employee.role}
+              </Badge>
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -50,9 +65,26 @@ export function EmployeeList({ organizationId }: EmployeeListProps) {
                 <Mail className="mr-2 h-4 w-4" />
                 {employee.email}
               </div>
+              <div className="text-sm text-muted-foreground">
+                Weekly Hours: {employee.weekly_hours_limit}
+              </div>
               <div className="flex space-x-2">
-                <Button variant="outline" size="sm">View Schedule</Button>
-                <Button variant="outline" size="sm">Edit</Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  Schedule
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="flex items-center"
+                >
+                  <UserCog className="mr-2 h-4 w-4" />
+                  Edit
+                </Button>
               </div>
             </div>
           </CardContent>

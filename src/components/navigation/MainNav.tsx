@@ -4,54 +4,85 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 
-const items = [
-  {
-    title: 'Overview',
-    href: '/dashboard',
-  },
-  {
-    title: 'Schedule',
-    href: '/schedule',
-  },
-  {
-    title: 'Availability',
-    href: '/availability',
-  },
-  {
-    title: 'Time Off',
-    href: '/timeoff',
-  },
-  {
-    title: 'Employees',
-    href: '/employees',
-  },
-]
+interface MainNavProps {
+  isManager: boolean
+}
 
-export function MainNav({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLElement>) {
+export function MainNav({ isManager }: MainNavProps) {
   const pathname = usePathname()
 
   return (
-    <nav
-      className={cn('flex items-center space-x-4 lg:space-x-6', className)}
-      {...props}
-    >
-      {items.map((item) => (
-        <Link
-          key={item.href}
-          href={item.href}
-          className={cn(
-            'text-sm font-medium transition-colors hover:text-primary',
-            pathname === item.href
-              ? 'text-primary'
-              : 'text-muted-foreground'
-          )}
-        >
-          {item.title}
-        </Link>
-      ))}
+    <nav className="flex items-center space-x-4 lg:space-x-6">
+      <Link
+        href="/dashboard"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/dashboard"
+            ? "text-primary"
+            : "text-muted-foreground"
+        )}
+      >
+        Overview
+      </Link>
+      <Link
+        href="/schedule"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/schedule"
+            ? "text-primary"
+            : "text-muted-foreground"
+        )}
+      >
+        Schedule
+      </Link>
+      <Link
+        href="/availability"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/availability"
+            ? "text-primary"
+            : "text-muted-foreground"
+        )}
+      >
+        Availability
+      </Link>
+      <Link
+        href="/timeoff"
+        className={cn(
+          "text-sm font-medium transition-colors hover:text-primary",
+          pathname === "/timeoff"
+            ? "text-primary"
+            : "text-muted-foreground"
+        )}
+      >
+        Time Off
+      </Link>
+      {isManager && (
+        <>
+          <Link
+            href="/employees"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary",
+              pathname === "/employees"
+                ? "text-primary"
+                : "text-muted-foreground"
+            )}
+          >
+            Employees
+          </Link>
+          <Link
+            href="/shifts"
+            className={cn(
+              "text-sm font-medium transition-colors hover:text-primary",
+              pathname === "/shifts"
+                ? "text-primary"
+                : "text-muted-foreground"
+            )}
+          >
+            Shifts
+          </Link>
+        </>
+      )}
     </nav>
   )
-} 
+}

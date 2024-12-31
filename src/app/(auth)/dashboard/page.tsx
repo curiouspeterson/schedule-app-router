@@ -38,7 +38,8 @@ export default async function DashboardPage() {
           id: user.id,
           full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
           email: user.email,
-          is_manager: false,
+          role: 'employee', // Default role
+          weekly_hours_limit: 40, // Default hours
         })
         .select()
         .single()
@@ -58,7 +59,7 @@ export default async function DashboardPage() {
     <div className="container mx-auto py-6">
       <DashboardContent
         user={user}
-        isManager={profile?.is_manager || false}
+        isManager={profile?.role === 'manager'}
       />
     </div>
   )

@@ -6,11 +6,8 @@ export default async function RootPage() {
   const cookieStore = cookies()
   const supabase = createClient(cookieStore)
   
-  const { data: { user }, error } = await supabase.auth.getUser()
+  const { data: { session } } = await supabase.auth.getSession()
 
-  if (error || !user) {
-    redirect('/login')
-  }
-
-  redirect('/dashboard')
+  // If logged in, go to dashboard, otherwise go to login
+  redirect(session ? '/dashboard' : '/login')
 } 

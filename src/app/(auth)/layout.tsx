@@ -1,20 +1,29 @@
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
-import { DashboardLayout } from '@/components/layouts/DashboardLayout'
+'use client'
 
-export default async function AuthLayout({
+import { createClient } from '@/lib/supabase/client'
+import { redirect } from 'next/navigation'
+import { DashboardLayout } from '@/components/layouts/DashboardLayout'
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+
+export default function AuthLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const cookieStore = cookies()
-  const supabase = createClient(cookieStore)
-  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  const supabase = createClient()
+  const router = useRouter()
 
-  if (userError || !user) {
-    redirect('/login')
-  }
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { user }, error } = await supabase.auth.getUser()
+      if (error || !user) {
+        router.push('/login')
+      }
+    }
 
-  return <DashboardLayout user={user}>{children}</DashboardLayout>
+    checkUser()
+  }, [supabase.auth, router])
+
+  return <DashboardLayout>{children}</DashboardLayout>
 } 
