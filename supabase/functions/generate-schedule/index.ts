@@ -1,0 +1,1 @@
+// Supabase Edge Function for automated schedule generation algorithm 

@@ -1,0 +1,1 @@
+// Shift label component - Displays shift information in a compact format 

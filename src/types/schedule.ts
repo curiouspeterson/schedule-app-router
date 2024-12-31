@@ -1,0 +1,1 @@
+// Type definitions for schedule-related data structures and interfaces 

@@ -1,0 +1,1 @@
+// Error boundary component - Catches and handles errors in schedule components 

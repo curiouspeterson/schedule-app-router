@@ -1,0 +1,1 @@
+// Type definitions for shift-related data structures and interfaces 

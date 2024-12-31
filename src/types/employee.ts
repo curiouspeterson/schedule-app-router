@@ -1,0 +1,1 @@
+// Type definitions for employee-related data structures and interfaces 

@@ -1,0 +1,1 @@
+// Employee list component - Displays and manages the list of all employees 

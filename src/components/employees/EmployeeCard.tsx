@@ -1,0 +1,1 @@
+// Employee card component - Displays individual employee information in a card format 

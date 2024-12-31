@@ -1,0 +1,1 @@
+// Draft notice component - Displays notification when schedule is in draft mode 

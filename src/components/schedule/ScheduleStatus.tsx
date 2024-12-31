@@ -1,0 +1,1 @@
+// Schedule status component - Displays current schedule status and validation information 

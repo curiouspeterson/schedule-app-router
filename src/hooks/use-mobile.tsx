@@ -1,0 +1,1 @@
+// Custom hook for detecting and handling mobile device states 

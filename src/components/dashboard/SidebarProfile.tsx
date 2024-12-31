@@ -1,0 +1,1 @@
+// Sidebar profile component - Displays user profile information and logout option in the sidebar 
