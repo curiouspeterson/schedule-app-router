@@ -1,70 +1,41 @@
 "use client"
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { NotificationCenter } from '@/components/notifications/NotificationCenter';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { Toaster } from '@/components/ui/toaster';
-import { MainNav } from '@/components/navigation/MainNav';
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { MainNav } from '@/components/navigation/MainNav'
+import { UserNav } from '@/components/navigation/UserNav'
+import { NotificationCenter } from '@/components/notifications/NotificationCenter'
 
-const queryClient = new QueryClient();
-
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: React.ReactNode
 }) {
-  const router = useRouter();
-  const supabase = createClient();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isManager, setIsManager] = useState(false);
+  const cookieStore = cookies()
+  const supabase = createClient(cookieStore)
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (!session || error) {
-        router.push('/login');
-        return;
-      }
-
-      // Fetch user's manager status
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_manager')
-        .eq('id', session.user.id)
-        .single();
-
-      setIsManager(profile?.is_manager || false);
-      setIsLoading(false);
-    };
-
-    checkAuth();
-  }, [router, supabase.auth]);
-
-  if (isLoading) {
-    return <div>Loading...</div>;
+  if (!user) {
+    return redirect('/login')
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background">
-        <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="container flex h-14 items-center">
-            <div className="mr-4 flex">
-              <a className="mr-6 flex items-center space-x-2" href="/">
-                <span className="font-bold">ScheduleMe</span>
-              </a>
-            </div>
-            <MainNav isManager={isManager} />
-            <div className="flex items-center space-x-2">
-              <NotificationCenter />
-            </div>
+    <div className="flex min-h-screen flex-col">
+      <header className="border-b">
+        <div className="flex h-16 items-center px-4">
+          <MainNav className="mx-6" />
+          <div className="ml-auto flex items-center space-x-4">
+            <NotificationCenter />
+            <UserNav user={user} />
           </div>
-        </header>
-        <main className="container mx-auto py-6">{children}</main>
-        <Toaster />
-      </div>
-    </QueryClientProvider>
-  );
+        </div>
+      </header>
+      <main className="flex-1 space-y-4 p-8 pt-6">
+        {children}
+      </main>
+    </div>
+  )
 } 
