@@ -55,9 +55,11 @@ export default async function DashboardPage() {
   }
 
   return (
-    <DashboardContent
-      user={user}
-      isManager={profile?.is_manager || false}
-    />
+    <div className="container mx-auto py-6">
+      <DashboardContent
+        user={user}
+        isManager={profile?.is_manager || false}
+      />
+    </div>
   )
 } 

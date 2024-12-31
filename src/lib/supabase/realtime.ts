@@ -1,113 +1,119 @@
 import { createClient } from './client';
 import { toast } from 'sonner';
-import { RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface AvailabilityPattern {
   id: string;
   employee_id: string;
-  organization_id: string;
   day_of_week: number;
   start_time: string;
   end_time: string;
 }
 
-interface AvailabilityChange {
-  employee_id: string;
-  employee_name: string;
-  day_of_week: number;
-  start_time: string;
-  end_time: string;
+interface ShiftSwapRequest {
+  id: string;
+  from_assignment_id: string;
+  to_employee_id: string;
+  from_employee_id: string;
+  status: 'pending' | 'approved' | 'rejected';
 }
 
-const daysOfWeek = [
-  'Sunday',
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-];
-
-export function subscribeToAvailabilityChanges(organizationId: string) {
+export function subscribeToAvailabilityUpdates() {
   const supabase = createClient();
 
   // Subscribe to availability pattern changes
-  const availabilityChannel = supabase.channel('availability-changes')
+  supabase
+    .channel('availability-updates')
     .on(
       'postgres_changes',
       {
         event: '*',
         schema: 'public',
-        table: 'availability_patterns',
-        filter: `organization_id=eq.${organizationId}`,
+        table: 'employee_availability',
       },
-      async (payload: RealtimePostgresChangesPayload<AvailabilityPattern>) => {
-        if (!payload.new) return;
+      async (payload) => {
+        const { new: newRecord, old: oldRecord, eventType } = payload;
 
-        // Fetch employee details
+        if (!newRecord || typeof newRecord !== 'object') return;
+        const record = newRecord as AvailabilityPattern;
+
+        // Get employee name
         const { data: employee } = await supabase
           .from('profiles')
           .select('full_name')
-          .eq('id', payload.new.employee_id)
+          .eq('id', record.employee_id)
           .single();
 
         if (!employee) return;
 
-        const change: AvailabilityChange = {
-          employee_id: payload.new.employee_id,
-          employee_name: employee.full_name,
-          day_of_week: payload.new.day_of_week,
-          start_time: payload.new.start_time,
-          end_time: payload.new.end_time,
-        };
-
-        handleAvailabilityChange(payload.eventType, change);
+        // Show notification based on event type
+        switch (eventType) {
+          case 'INSERT':
+            toast.success(`${employee.full_name} added new availability`);
+            break;
+          case 'UPDATE':
+            toast.info(`${employee.full_name} updated their availability`);
+            break;
+          case 'DELETE':
+            toast.info(`${employee.full_name} removed availability`);
+            break;
+        }
       }
     )
     .subscribe();
-
-  return () => {
-    supabase.removeChannel(availabilityChannel);
-  };
 }
 
-function handleAvailabilityChange(eventType: string, change: AvailabilityChange) {
-  const day = daysOfWeek[change.day_of_week];
-  const timeRange = `${formatTime(change.start_time)} - ${formatTime(change.end_time)}`;
+export function subscribeToShiftSwapRequests() {
+  const supabase = createClient();
 
-  switch (eventType) {
-    case 'INSERT':
-      toast.info(
-        `New Availability Added`,
-        {
-          description: `${change.employee_name} is now available on ${day}s from ${timeRange}`,
-        }
-      );
-      break;
-    case 'UPDATE':
-      toast.info(
-        `Availability Updated`,
-        {
-          description: `${change.employee_name} updated their availability on ${day}s to ${timeRange}`,
-        }
-      );
-      break;
-    case 'DELETE':
-      toast.info(
-        `Availability Removed`,
-        {
-          description: `${change.employee_name} removed their availability on ${day}s`,
-        }
-      );
-      break;
-  }
-}
+  // Subscribe to shift swap request changes
+  supabase
+    .channel('shift-swap-updates')
+    .on(
+      'postgres_changes',
+      {
+        event: '*',
+        schema: 'public',
+        table: 'shift_swap_requests',
+      },
+      async (payload) => {
+        const { new: newRecord, eventType } = payload;
 
-function formatTime(time: string): string {
-  const [hours, minutes] = time.split(':');
-  const hour = parseInt(hours, 10);
-  const period = hour >= 12 ? 'PM' : 'AM';
-  const displayHour = hour % 12 || 12;
-  return `${displayHour}:${minutes} ${period}`;
+        if (!newRecord || typeof newRecord !== 'object') return;
+        const record = newRecord as ShiftSwapRequest;
+
+        // Get employee names
+        const { data: employees } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', [record.from_employee_id, record.to_employee_id]);
+
+        if (!employees) return;
+
+        const fromEmployee = employees.find(e => e.id === record.from_employee_id);
+        const toEmployee = employees.find(e => e.id === record.to_employee_id);
+
+        if (!fromEmployee || !toEmployee) return;
+
+        // Show notification based on event type and status
+        if (eventType === 'INSERT') {
+          toast.info(
+            `New shift swap request: ${fromEmployee.full_name} → ${toEmployee.full_name}`
+          );
+        } else if (eventType === 'UPDATE') {
+          switch (record.status) {
+            case 'approved':
+              toast.success(
+                `Shift swap approved: ${fromEmployee.full_name} → ${toEmployee.full_name}`
+              );
+              break;
+            case 'rejected':
+              toast.error(
+                `Shift swap rejected: ${fromEmployee.full_name} → ${toEmployee.full_name}`
+              );
+              break;
+          }
+        }
+      }
+    )
+    .subscribe();
 } 

@@ -22,8 +22,19 @@ export function UserNav({ user }: UserNavProps) {
   const supabase = createClient()
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    router.refresh()
+    try {
+      // Sign out from Supabase
+      const { error } = await supabase.auth.signOut()
+      if (error) throw error
+
+      // Wait a moment for the session to clear
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // Navigate to login page
+      window.location.href = '/login'
+    } catch (error) {
+      console.error('Error signing out:', error)
+    }
   }
 
   return (

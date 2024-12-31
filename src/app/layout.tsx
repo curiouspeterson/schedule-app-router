@@ -17,11 +17,12 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head />
+    <html lang="en" suppressHydrationWarning className="dark">
       <body className={inter.className}>
         <Providers>
-          {children}
+          <div className="min-h-screen bg-background text-foreground antialiased">
+            {children}
+          </div>
           <ToastProvider />
         </Providers>
       </body>

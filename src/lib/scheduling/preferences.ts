@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { SchedulingConstraints } from './types';
 
 export type PreferenceLevel = 'preferred' | 'neutral' | 'avoid';
 export type ShiftType = 'morning' | 'afternoon' | 'evening';
@@ -126,13 +127,13 @@ export function getPreferredShifts(
     .map(p => ({ shiftType: p.shift_type, dayOfWeek: p.day_of_week }));
 }
 
-export function getEmployeeConstraints(preferences: ShiftPreference[], employeeId: string) {
+export function getEmployeeConstraints(preferences: ShiftPreference[], employeeId: string): SchedulingConstraints {
   const employeePrefs = preferences.filter(p => p.employee_id === employeeId);
   const latestPref = employeePrefs[employeePrefs.length - 1];
 
   return {
-    maxWeeklyHours: latestPref?.max_weekly_hours,
-    minWeeklyHours: latestPref?.min_weekly_hours,
-    maxConsecutiveDays: latestPref?.max_consecutive_days,
+    maxHoursPerDay: 12, // Default to 12 hours max per day
+    minHoursBetweenShifts: 8, // Default to 8 hours between shifts
+    maxConsecutiveDays: latestPref?.max_consecutive_days || 7, // Default to 7 days
   };
 } 

@@ -2,7 +2,7 @@ import { ShiftAssignment, Employee, Shift } from './types';
 import { isEmployeeAvailable, checkConstraints } from './utils';
 import { ShiftPreference, calculatePreferenceScore, getEmployeeConstraints } from './preferences';
 
-interface GeneratorOptions {
+export interface GeneratorOptions {
   employees: Employee[];
   shifts: Shift[];
   preferences: ShiftPreference[];
@@ -10,7 +10,7 @@ interface GeneratorOptions {
   endDate: Date;
 }
 
-interface GeneratorResult {
+export interface GeneratorResult {
   assignments: ShiftAssignment[];
   unassignedShifts: Shift[];
   stats: {

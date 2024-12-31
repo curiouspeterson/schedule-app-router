@@ -1,3 +1,5 @@
+'use client';
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { format, addWeeks, startOfWeek, endOfWeek } from 'date-fns';
 import { createClient } from '@/lib/supabase/client';

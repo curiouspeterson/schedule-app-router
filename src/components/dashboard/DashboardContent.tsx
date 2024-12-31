@@ -1,5 +1,8 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -8,284 +11,118 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { format } from 'date-fns'
 import { User } from '@supabase/supabase-js'
-import { useQuery } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
-import { AvailabilityPattern, ScheduleAssignment, ShiftSwapRequest } from '@/types/supabase'
-import { Database } from '@/types/supabase-types'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSignOut } from '@/hooks/useSignOut'
 
 interface DashboardContentProps {
   user: User
   isManager: boolean
 }
 
-function getFullName(profile: { first_name: string | null; last_name: string | null }) {
-  if (!profile.first_name && !profile.last_name) return 'Unknown'
-  return [profile.first_name, profile.last_name].filter(Boolean).join(' ')
-}
-
 export function DashboardContent({
   user,
   isManager,
 }: DashboardContentProps) {
+  const router = useRouter()
   const supabase = createClient()
+  const [mounted, setMounted] = useState(false)
+  const queryClient = useQueryClient()
+  const { signOut } = useSignOut()
 
-  const { data: availability = [] } = useQuery({
-    queryKey: ['availability', user.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('availability_patterns')
-        .select('*')
-        .eq('employee_id', user.id)
-        .order('day_of_week', { ascending: true })
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
-      if (error) throw error
-      return (data || []) as AvailabilityPattern[]
-    }
-  })
-
-  const { data: upcomingShifts = [] } = useQuery({
-    queryKey: ['upcoming-shifts', user.id],
-    queryFn: async () => {
-      const today = new Date()
-      const endDate = new Date(today)
-      endDate.setDate(today.getDate() + 7)
-
-      const { data, error } = await supabase
-        .from('schedule_assignments')
-        .select(`
-          *,
-          shift:shifts (*)
-        `)
-        .eq('employee_id', user.id)
-        .gte('date', format(today, 'yyyy-MM-dd'))
-        .lte('date', format(endDate, 'yyyy-MM-dd'))
-        .order('date', { ascending: true })
-
-      if (error) throw error
-      return (data || []) as ScheduleAssignment[]
-    }
-  })
-
-  const { data: swapRequests = [] } = useQuery({
-    queryKey: ['swap-requests', user.id],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('shift_swap_requests')
-        .select(`
-          *,
-          requesting_employee:profiles (*),
-          target_employee:profiles (*),
-          schedule_assignment:schedule_assignments (
-            *,
-            shift:shifts (*)
-          )
-        `)
-        .or(`requesting_employee_id.eq.${user.id},target_employee_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      return (data || []) as ShiftSwapRequest[]
-    }
-  })
+  // Don't render anything until mounted
+  if (!mounted) {
+    return null
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Employee Dashboard</h1>
+    <div className="flex flex-col min-h-screen bg-background">
+      <div className="fixed top-0 left-0 right-0 bg-red-600 p-4 text-center z-50 shadow-lg">
+        <button 
+          onClick={signOut}
+          className="text-white font-bold text-xl hover:underline transition-colors"
+        >
+          🚪 Sign Out
+        </button>
       </div>
+      
+      <div className="flex-1 container mx-auto space-y-6 mt-20 p-8">
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl font-bold text-white">Employee Dashboard</h1>
+          <Badge variant={isManager ? "default" : "secondary"}>
+            {isManager ? "Manager" : "Employee"}
+          </Badge>
+        </div>
 
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>My Schedule</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex space-x-4 mb-4">
-              <Button variant="outline">Previous Week</Button>
-              <Button variant="outline">Next Week</Button>
-            </div>
-
-            <div className="space-y-6">
-              {[0, 1, 2, 3, 4, 5, 6].map((dayOffset) => {
-                const date = new Date()
-                date.setDate(date.getDate() + dayOffset)
-                const dayShifts = upcomingShifts.filter(
-                  (shift) => shift.date === format(date, 'yyyy-MM-dd')
-                )
-
-                return (
-                  <div key={dayOffset} className="space-y-2">
-                    <h3 className="font-semibold">
-                      {format(date, 'EEEE, MMMM d')}
-                    </h3>
-                    {dayShifts.length > 0 ? (
-                      <div className="space-y-2">
-                        {dayShifts.map((shift) => (
-                          <div
-                            key={shift.id}
-                            className="flex items-center justify-between rounded-lg border p-4"
-                          >
-                            <div>
-                              <p className="font-medium">{shift.shift.name}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {format(new Date(`2000-01-01T${shift.shift.start_time}`), 'h:mm a')} -
-                                {format(new Date(`2000-01-01T${shift.shift.end_time}`), 'h:mm a')}
-                              </p>
-                            </div>
-                            <Badge>Scheduled</Badge>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No shifts scheduled
-                      </p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Schedule Preferences</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex space-x-4">
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="day">Day of Week</Label>
-                  <Select>
-                    <SelectTrigger id="day">
-                      <SelectValue placeholder="Select a day" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="1">Monday</SelectItem>
-                      <SelectItem value="2">Tuesday</SelectItem>
-                      <SelectItem value="3">Wednesday</SelectItem>
-                      <SelectItem value="4">Thursday</SelectItem>
-                      <SelectItem value="5">Friday</SelectItem>
-                      <SelectItem value="6">Saturday</SelectItem>
-                      <SelectItem value="0">Sunday</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="start-time">Start Time</Label>
-                  <Input
-                    id="start-time"
-                    type="time"
-                    defaultValue="09:00"
-                  />
-                </div>
-                <div className="flex-1 space-y-2">
-                  <Label htmlFor="end-time">End Time</Label>
-                  <Input
-                    id="end-time"
-                    type="time"
-                    defaultValue="17:00"
-                  />
-                </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {/* User Info Card */}
+          <Card className="border border-border bg-card">
+            <CardHeader>
+              <CardTitle className="text-card-foreground">Profile Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2 text-card-foreground">
+                <p><strong>Email:</strong> {user.email}</p>
+                <p><strong>User ID:</strong> {user.id}</p>
+                <p>
+                  <strong>Last Sign In:</strong> {user.last_sign_in_at ? format(new Date(user.last_sign_in_at), 'PPpp') : 'Never'}
+                </p>
               </div>
-              <Button>Add Availability</Button>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions Card */}
+          <Card className="border border-border bg-card">
+            <CardHeader>
+              <CardTitle className="text-card-foreground">Quick Actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button className="w-full bg-primary text-primary-foreground hover:bg-primary/90">View Schedule</Button>
+              <Button className="w-full" variant="outline">Request Time Off</Button>
+              {isManager && (
+                <Button className="w-full" variant="secondary">Manage Team</Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Upcoming Shifts Card */}
+          <Card className="border border-border bg-card">
+            <CardHeader>
+              <CardTitle className="text-card-foreground">Upcoming Shifts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground">No upcoming shifts scheduled</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {isManager && (
+          <div className="mt-8">
+            <h2 className="text-xl font-semibold mb-4 text-white">Manager Tools</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card className="border border-border bg-card">
+                <CardHeader>
+                  <CardTitle className="text-card-foreground">Team Overview</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">View and manage your team's schedules</p>
+                </CardContent>
+              </Card>
+              
+              <Card className="border border-border bg-card">
+                <CardHeader>
+                  <CardTitle className="text-card-foreground">Schedule Management</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-muted-foreground">Create and modify team schedules</p>
+                </CardContent>
+              </Card>
             </div>
-
-            <div className="mt-6 space-y-4">
-              {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day, index) => {
-                const dayAvailability = availability.find(a => a.day_of_week === index)
-                return (
-                  <div key={day} className="space-y-2">
-                    <h3 className="font-semibold">{day}</h3>
-                    {dayAvailability ? (
-                      <p className="text-sm">
-                        {format(new Date(`2000-01-01T${dayAvailability.start_time}`), 'h:mm a')} -
-                        {format(new Date(`2000-01-01T${dayAvailability.end_time}`), 'h:mm a')}
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">No availability set</p>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Shift Swap Requests</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {swapRequests.length > 0 ? (
-              <div className="space-y-4">
-                {swapRequests
-                  .filter(req => req.status === 'pending')
-                  .map((request) => (
-                    <div
-                      key={request.id}
-                      className="flex items-center justify-between rounded-lg border p-4"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {format(new Date(request.schedule_assignment.date), 'MMM d')} -
-                          {request.schedule_assignment.shift.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {request.requesting_employee.id === user.id
-                            ? `Requested to swap with ${getFullName(request.target_employee)}`
-                            : `${getFullName(request.requesting_employee)} wants to swap with you`}
-                        </p>
-                      </div>
-                      <Badge variant={request.status === 'pending' ? 'outline' : 'secondary'}>
-                        {request.status}
-                      </Badge>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No pending swap requests</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Swap Request History</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {swapRequests.length > 0 ? (
-              <div className="space-y-4">
-                {swapRequests
-                  .filter(req => req.status !== 'pending')
-                  .map((request) => (
-                    <div
-                      key={request.id}
-                      className="flex items-center justify-between rounded-lg border p-4"
-                    >
-                      <div>
-                        <p className="font-medium">
-                          {format(new Date(request.schedule_assignment.date), 'MMM d')} -
-                          {request.schedule_assignment.shift.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {request.requesting_employee.id === user.id
-                            ? `Requested to swap with ${getFullName(request.target_employee)}`
-                            : `${getFullName(request.requesting_employee)} wanted to swap with you`}
-                        </p>
-                      </div>
-                      <Badge variant={request.status === 'approved' ? 'default' : 'destructive'}>
-                        {request.status}
-                      </Badge>
-                    </div>
-                  ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No swap request history</p>
-            )}
-          </CardContent>
-        </Card>
+          </div>
+        )}
       </div>
     </div>
   )

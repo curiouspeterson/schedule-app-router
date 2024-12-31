@@ -3,7 +3,9 @@ import { cookies } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { addDays, format, startOfWeek } from 'date-fns';
 import { generateSchedule } from '@/lib/scheduling/generator';
-import type { Employee, Shift, Availability, CoverageRequirement } from '@/lib/scheduling/types';
+import { convertAvailabilityToPreferences } from '@/lib/scheduling/utils';
+import type { Employee, Shift, Availability } from '@/lib/scheduling/types';
+import type { GeneratorOptions } from '@/lib/scheduling/generator';
 
 export async function POST(request: Request) {
   try {
@@ -34,13 +36,14 @@ export async function POST(request: Request) {
     // Get the start date for the schedule (defaults to next week)
     const body = await request.json();
     const startDate = body.startDate ? new Date(body.startDate) : startOfWeek(addDays(new Date(), 7), { weekStartsOn: 1 });
+    const endDate = addDays(startDate, 6);
 
     // Create a new schedule
     const { data: schedule, error: scheduleError } = await supabase
       .from('schedules')
       .insert({
         start_date: format(startDate, 'yyyy-MM-dd'),
-        end_date: format(addDays(startDate, 6), 'yyyy-MM-dd'),
+        end_date: format(endDate, 'yyyy-MM-dd'),
         created_by: user.id,
         status: 'draft',
       })
@@ -79,27 +82,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch availability' }, { status: 500 });
     }
 
-    // Get coverage requirements
-    const { data: coverage, error: coverageError } = await supabase
-      .from('coverage_requirements')
-      .select('*')
-      .gte('date', format(startDate, 'yyyy-MM-dd'))
-      .lte('date', format(addDays(startDate, 6), 'yyyy-MM-dd'));
-
-    if (coverageError) {
-      return NextResponse.json({ error: 'Failed to fetch coverage requirements' }, { status: 500 });
-    }
-
     // Generate the schedule
-    const result = await generateSchedule(
-      schedule.id,
+    const options: GeneratorOptions = {
+      employees: employees as Employee[],
+      shifts: shifts as Shift[],
+      preferences: convertAvailabilityToPreferences(availability as Availability[]),
       startDate,
-      employees as Employee[],
-      shifts as Shift[],
-      availability as Availability[],
-      coverage as CoverageRequirement[],
-      body.constraints
-    );
+      endDate,
+    };
+
+    const result = await generateSchedule(options);
 
     // Insert the assignments
     if (result.assignments.length > 0) {
@@ -118,7 +110,7 @@ export async function POST(request: Request) {
       stats: {
         totalAssignments: result.assignments.length,
         unassignedShifts: result.unassignedShifts.length,
-        employeeStats: result.employeeStats,
+        employeeHours: result.stats.employeeHours,
       },
     });
   } catch (error) {

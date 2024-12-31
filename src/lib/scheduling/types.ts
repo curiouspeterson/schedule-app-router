@@ -1,3 +1,5 @@
+import { ShiftPreference } from './preferences';
+
 export interface Employee {
   id: string;
   name: string;

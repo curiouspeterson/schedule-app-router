@@ -29,7 +29,7 @@ export default async function ManagerAvailabilityPage() {
     <main className="container mx-auto p-4 space-y-8">
       <h1 className="text-3xl font-bold">Employee Availability</h1>
       <EmployeeAvailabilityOverview organizationId={profile.organization_id} />
-      <AvailabilityNotifications organizationId={profile.organization_id} />
+      <AvailabilityNotifications />
       <Toaster />
     </main>
   );

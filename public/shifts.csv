@@ -1,0 +1,6 @@
+id,name,start_time,end_time,role,color
+b3879591-99d7-4505-8d74-d4d5a79f43f2,Morning Shift,09:00:00,17:00:00,Server,#3498db
+c75e65f6-1d44-4b9d-8838-e5d7a8f1c6b8,Afternoon Shift,13:00:00,21:00:00,Cashier,#2ecc71
+d52a3290-1c8f-4e21-949d-6e1a44f6b57d,Evening Shift,17:00:00,01:00:00,Server,#e74c3c
+e5b9489f-7d42-4895-b19a-d9d8f8e7d6c8,Night Shift,21:00:00,05:00:00,Manager,#f39c12
+f9c36e4d-5a2b-4c1f-885e-1f5d8a7b4e6f,Morning Shift,08:00:00,16:00:00,Cashier,#9b59b6

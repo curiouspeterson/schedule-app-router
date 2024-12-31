@@ -71,7 +71,7 @@ export function ScheduleOverview({ employeeId }: ScheduleOverviewProps) {
           {[0, 1, 2, 3, 4, 5, 6].map(dayOffset => {
             const date = addDays(weekStart, dayOffset);
             const dayAssignments = assignments?.filter(
-              a => format(new Date(a.shift.start_time), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
+              a => a.shift && format(new Date(a.shift.start_time), 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd')
             );
 
             return (
@@ -84,15 +84,17 @@ export function ScheduleOverview({ employeeId }: ScheduleOverviewProps) {
                     {dayAssignments.map(assignment => (
                       <div
                         key={assignment.id}
-                        className="flex justify-between items-center bg-muted p-2 rounded"
+                        className="p-2 bg-white rounded-lg shadow-sm"
                       >
-                        <span>
-                          {format(new Date(assignment.shift.start_time), 'h:mm a')} -{' '}
-                          {format(new Date(assignment.shift.end_time), 'h:mm a')}
-                        </span>
-                        <span className="text-sm text-muted-foreground">
-                          {assignment.shift.role}
-                        </span>
+                        {assignment.shift && (
+                          <>
+                            <p className="font-medium">{assignment.shift.role}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {format(new Date(assignment.shift.start_time), 'HH:mm')} -{' '}
+                              {format(new Date(assignment.shift.end_time), 'HH:mm')}
+                            </p>
+                          </>
+                        )}
                       </div>
                     ))}
                   </div>

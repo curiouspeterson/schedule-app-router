@@ -12,7 +12,7 @@ interface DailyScheduleProps {
   scheduleId: string;
 }
 
-export function DailySchedule({ date, scheduleId }: DailyScheduleProps) {
+export default function DailySchedule({ date, scheduleId }: DailyScheduleProps) {
   const queryClient = useQueryClient();
   const supabase = createClient();
 
@@ -103,15 +103,10 @@ export function DailySchedule({ date, scheduleId }: DailyScheduleProps) {
               </div>
               {currentUser?.id === assignment.employee_id && (
                 <RequestSwapDialog
-                  shiftAssignmentId={assignment.id}
-                  date={date}
-                  shiftName={`${assignment.shift.name} (${assignment.shift.start_time} - ${assignment.shift.end_time})`}
-                  onRequestSwap={(targetEmployeeId) =>
-                    requestSwap.mutate({
-                      shiftAssignmentId: assignment.id,
-                      targetEmployeeId,
-                    })
-                  }
+                  assignmentId={assignment.id}
+                  shiftDate={date}
+                  shiftTime={`${assignment.shift.start_time} - ${assignment.shift.end_time}`}
+                  shiftRole={assignment.shift.role}
                 />
               )}
             </div>

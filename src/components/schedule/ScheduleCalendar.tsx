@@ -1,15 +1,33 @@
-// Schedule calendar component - Main calendar view for displaying and managing schedules
+'use client';
 
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { format, startOfWeek, addDays } from 'date-fns';
+import { createClient } from '@/lib/supabase/client';
 import WeekNavigation from './Calendar/WeekNavigation';
 import DailyCoverageStats from './Calendar/DailyCoverageStats';
 import DailySchedule from './DailySchedule';
 import ScheduleControls from './ScheduleControls';
-import { format, startOfWeek, addDays } from 'date-fns';
 
 export default function ScheduleCalendar() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const weekStart = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Start week on Monday
+  const supabase = createClient();
+
+  // Fetch the schedule for the selected week
+  const { data: schedule } = useQuery({
+    queryKey: ['schedule', format(weekStart, 'yyyy-MM-dd')],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('schedules')
+        .select('*')
+        .eq('start_date', format(weekStart, 'yyyy-MM-dd'))
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const day = addDays(weekStart, i);
@@ -32,7 +50,10 @@ export default function ScheduleCalendar() {
             <div className="text-sm font-medium">{day.dayName}</div>
             <div className="text-2xl">{day.dayNumber}</div>
             <DailyCoverageStats date={day.date} />
-            <DailySchedule date={day.date} />
+            <DailySchedule 
+              date={day.date} 
+              scheduleId={schedule?.id || ''}
+            />
           </div>
         ))}
       </div>

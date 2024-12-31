@@ -1,21 +1,12 @@
+'use client';
+
 import { useEffect } from 'react';
-import { subscribeToAvailabilityChanges } from '@/lib/supabase/realtime';
+import { subscribeToAvailabilityUpdates } from '@/lib/supabase/realtime';
 
-interface AvailabilityNotificationsProps {
-  organizationId: string;
-}
-
-export function AvailabilityNotifications({ organizationId }: AvailabilityNotificationsProps) {
+export function AvailabilityNotifications() {
   useEffect(() => {
-    // Subscribe to availability changes
-    const unsubscribe = subscribeToAvailabilityChanges(organizationId);
+    subscribeToAvailabilityUpdates();
+  }, []);
 
-    // Cleanup subscription on unmount
-    return () => {
-      unsubscribe();
-    };
-  }, [organizationId]);
-
-  // This component doesn't render anything visible
   return null;
 } 

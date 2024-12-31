@@ -11,19 +11,19 @@ const items = [
   },
   {
     title: 'Schedule',
-    href: '/dashboard/schedule',
+    href: '/schedule',
   },
   {
     title: 'Availability',
-    href: '/dashboard/availability',
+    href: '/availability',
   },
   {
     title: 'Time Off',
-    href: '/dashboard/timeoff',
+    href: '/timeoff',
   },
   {
     title: 'Employees',
-    href: '/dashboard/employees',
+    href: '/employees',
   },
 ]
 
